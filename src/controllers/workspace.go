@@ -121,10 +121,45 @@ func (controller *Workspace) create(responseWriter http.ResponseWriter, request 
 
 // GET /workspace
 func (controller *Workspace) readPage(responseWriter http.ResponseWriter, request *http.Request) {
-	// Validate
+	log.Println("Handling", request.Method, request.URL)
+	// * Auth
+	if controller.user.Id == "" {
+		replyAsJson(responseWriter, 401, map[string]any{
+			"error": "Unauthenticated",
+		})
+		return
+	}
 
-	params := routeParams(request, controller.basePath+"{id}")
-	_ = params["id"]
+	// * Parse
+
+	// * Validate
+
+	// Initialize a new DB transaction
+	ctx := context.TODO()
+	transaction, err := core.BeginTransaction(ctx)
+	if err != nil {
+		log.Print("failed to connect database", err)
+		http.Error(responseWriter, "Could not connect to database", 503)
+		return
+	}
+
+	// Construct Dependencies
+	workspaceService := services.CreateWorkspaceService(
+		repositories.CreateWorkspaceRepository(transaction),
+		controller.user,
+	)
+	workspaces, httpErr := workspaceService.GetAllByUser(ctx, controller.user.Id)
+	if httpErr != nil {
+		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
+			"error": httpErr.Error(),
+		})
+		return
+	}
+	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.Workspace]{
+		Size:    999,
+		From:    0,
+		Results: workspaces,
+	})
 }
 
 // GET /workspace/{id}

@@ -45,3 +45,12 @@ func (service *WorkspaceService) GetById(ctx context.Context, id string) (models
 	}
 	return entity, nil
 }
+
+func (service *WorkspaceService) GetAllByUser(ctx context.Context, appUserId string) ([]models.Workspace, HttpError) {
+	entities, err := service.workspaceRepository.GetAllByUserId(ctx, appUserId)
+	if err != nil {
+		log.Println(err)
+		return []models.Workspace{}, InternalServerError{"Internal Server Error"}
+	}
+	return entities, nil
+}
