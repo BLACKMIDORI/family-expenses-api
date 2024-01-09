@@ -148,7 +148,7 @@ func (controller *Workspace) readPage(responseWriter http.ResponseWriter, reques
 		repositories.CreateWorkspaceRepository(transaction),
 		controller.user,
 	)
-	workspaces, httpErr := workspaceService.GetAllByUser(ctx, controller.user.Id)
+	workspaces, httpErr := workspaceService.GetAll(ctx, controller.user.Id)
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -165,23 +165,175 @@ func (controller *Workspace) readPage(responseWriter http.ResponseWriter, reques
 // GET /workspace/{id}
 func (controller *Workspace) read(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
-	// Validate
+	// * Parse
 	params := routeParams(request, controller.basePath+"{id}")
-	_ = params["id"]
+
+	// * Validate
+	validationErrors := make(map[string][]string)
+	if prop, ok := params["id"]; !ok || prop == "" {
+		validationErrors["id"] = []string{"'id' is required"}
+	}
+	if len(validationErrors) != 0 {
+		replyAsJson(responseWriter, 400, map[string]any{
+			"errors": validationErrors,
+		})
+		return
+	}
+
+	// Initialize a new DB transaction
+	ctx := context.TODO()
+	transaction, err := core.BeginTransaction(ctx)
+	if err != nil {
+		log.Print("failed to connect database", err)
+		http.Error(responseWriter, "Could not connect to database", 503)
+		return
+	}
+
+	// Construct Dependencies
+	workspaceService := services.CreateWorkspaceService(
+		repositories.CreateWorkspaceRepository(transaction),
+		controller.user,
+	)
+	workspace, httpErr := workspaceService.GetById(ctx, params["id"])
+	if httpErr != nil {
+		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
+			"error": httpErr.Error(),
+		})
+		return
+	}
+	_ = json.NewEncoder(responseWriter).Encode(workspace)
 }
 
 // PUT /workspace/{id}
 func (controller *Workspace) update(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
-	// Validate
+	// * Auth
+	if controller.user.Id == "" {
+		replyAsJson(responseWriter, 401, map[string]any{
+			"error": "Unauthenticated",
+		})
+		return
+	}
+
+	// * Parse
 	params := routeParams(request, controller.basePath+"{id}")
-	_ = params["id"]
+	body := bodyJson(request)
+
+	// * Validate
+	validationErrors := make(map[string][]string)
+	if prop, ok := params["id"]; !ok || prop == "" {
+		validationErrors["id"] = []string{"'id' is required"}
+	}
+	if prop, ok := body["name"]; !ok || prop.(string) == "" {
+		validationErrors["name"] = []string{"'name' is required"}
+	}
+	if len(validationErrors) != 0 {
+		replyAsJson(responseWriter, 400, map[string]any{
+			"errors": validationErrors,
+		})
+		return
+	}
+
+	// Initialize a new DB transaction
+	ctx := context.TODO()
+	transaction, err := core.BeginTransaction(ctx)
+	if err != nil {
+		log.Print("failed to connect database", err)
+		http.Error(responseWriter, "Could not connect to database", 503)
+		return
+	}
+
+	// Construct Dependencies
+	workspaceService := services.CreateWorkspaceService(
+		repositories.CreateWorkspaceRepository(transaction),
+		controller.user,
+	)
+	workspace, httpErr := workspaceService.GetById(ctx, params["id"])
+	if httpErr != nil {
+		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
+			"error": httpErr.Error(),
+		})
+		return
+	}
+
+	// Update fields
+	workspace.Name = body["name"].(string)
+
+	workspace, httpErr = workspaceService.Update(ctx, workspace)
+	if httpErr != nil {
+		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
+			"error": httpErr.Error(),
+		})
+		return
+	}
+	err = transaction.Commit(ctx)
+	if err != nil {
+		log.Print("failed to save to database", err)
+		replyAsJson(responseWriter, 500, map[string]any{
+			"error": "Error saving changes",
+		})
+		return
+	}
+	_ = json.NewEncoder(responseWriter).Encode(workspace)
 }
 
 // DELETE /workspace/{id}
 func (controller *Workspace) delete(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
-	// Validate
+	// * Auth
+	if controller.user.Id == "" {
+		replyAsJson(responseWriter, 401, map[string]any{
+			"error": "Unauthenticated",
+		})
+		return
+	}
+
+	// * Parse
 	params := routeParams(request, controller.basePath+"{id}")
-	_ = params["id"]
+
+	// * Validate
+	validationErrors := make(map[string][]string)
+	if prop, ok := params["id"]; !ok || prop == "" {
+		validationErrors["id"] = []string{"'id' is required"}
+	}
+	if len(validationErrors) != 0 {
+		replyAsJson(responseWriter, 400, map[string]any{
+			"errors": validationErrors,
+		})
+		return
+	}
+
+	// Initialize a new DB transaction
+	ctx := context.TODO()
+	transaction, err := core.BeginTransaction(ctx)
+	if err != nil {
+		log.Print("failed to connect database", err)
+		http.Error(responseWriter, "Could not connect to database", 503)
+		return
+	}
+
+	// Construct Dependencies
+	workspaceService := services.CreateWorkspaceService(
+		repositories.CreateWorkspaceRepository(transaction),
+		controller.user,
+	)
+	httpErr := workspaceService.DeleteById(ctx, params["id"])
+	if httpErr != nil {
+		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
+			"error": httpErr.Error(),
+		})
+		return
+	}
+
+	err = transaction.Commit(ctx)
+	if err != nil {
+		log.Print("failed to save to database", err)
+		replyAsJson(responseWriter, 500, map[string]any{
+			"error": "Error saving changes",
+		})
+		return
+	}
+	_ = json.NewEncoder(responseWriter).Encode(map[string]any{
+		"ok": true,
+	})
 }
