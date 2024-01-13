@@ -41,3 +41,23 @@ CREATE TABLE workspace
     PRIMARY KEY (id),
     FOREIGN KEY (fk_app_user_id) REFERENCES app_user (id)
 );
+
+CREATE TABLE expense
+(
+    id             text not null unique,
+    creation_unix bigint not null,
+    name           text not null,
+    fk_workspace_id text not null,
+    PRIMARY KEY (id),
+    FOREIGN KEY (fk_workspace_id) REFERENCES workspace (id)
+);
+
+CREATE TABLE payer
+(
+    id             text not null unique,
+    creation_unix bigint not null,
+    name           text not null,
+    fk_workspace_id text not null,
+    PRIMARY KEY (id),
+    FOREIGN KEY (fk_workspace_id) REFERENCES workspace (id)
+);
