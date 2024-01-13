@@ -25,7 +25,7 @@ func CreateWorkspaceService(workspaceRepository *repositories.WorkspaceRepositor
 func (service *WorkspaceService) Create(ctx context.Context, newEntity models.Workspace) (models.Workspace, HttpError) {
 	newEntity.Id = uuid.New().String()
 	newEntity.CreationDateTime = time.Now()
-	newEntity.OwnerId = service.user.Id
+	newEntity.Owner.Id = service.user.Id
 	entity, err := service.workspaceRepository.Insert(ctx, newEntity)
 	if err != nil {
 		log.Println(err)
@@ -55,7 +55,7 @@ func (service *WorkspaceService) GetById(ctx context.Context, id string) (models
 }
 
 func (service *WorkspaceService) Update(ctx context.Context, existentEntity models.Workspace) (models.Workspace, HttpError) {
-	existentEntity.OwnerId = service.user.Id
+	existentEntity.Owner.Id = service.user.Id
 	entity, err := service.workspaceRepository.Update(ctx, service.user.Id, existentEntity)
 	if err != nil {
 		log.Println(err)

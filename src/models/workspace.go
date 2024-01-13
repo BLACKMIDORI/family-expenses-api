@@ -6,5 +6,9 @@ type Workspace struct {
 	Id               string    `json:"id"`
 	CreationDateTime time.Time `json:"creationDateTime"`
 	Name             string    `json:"name"`
-	OwnerId          string    `json:"ownerId"`
+	Owner            Owner     `json:"owner"`
+}
+
+type Owner struct {
+	Id string `json:"id"`
 }

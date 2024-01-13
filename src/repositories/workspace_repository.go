@@ -21,7 +21,7 @@ func (repository *WorkspaceRepository) Insert(ctx context.Context, entity models
 	_, err := repository.transaction.Exec(
 		ctx,
 		"INSERT INTO workspace (id, creation_unix, name, fk_app_user_id) VALUES ($1, $2, $3, $4)",
-		entity.Id, validTimeToUnixOrNil(entity.CreationDateTime), entity.Name, entity.OwnerId,
+		entity.Id, validTimeToUnixOrNil(entity.CreationDateTime), entity.Name, entity.Owner.Id,
 	)
 	if err != nil {
 		return models.Workspace{}, err
@@ -41,7 +41,7 @@ func (repository *WorkspaceRepository) GetAll(ctx context.Context, appUserId str
 	}
 	obj := models.Workspace{}
 	creationUnix := time.Time{}.Unix()
-	err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.OwnerId)
+	err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Owner.Id)
 	if err != nil {
 		return []models.Workspace{}, err
 	}
@@ -50,7 +50,7 @@ func (repository *WorkspaceRepository) GetAll(ctx context.Context, appUserId str
 	for rows.Next() {
 		obj := models.Workspace{}
 		creationUnix := time.Time{}.Unix()
-		err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.OwnerId)
+		err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Owner.Id)
 		if err != nil {
 			return []models.Workspace{}, err
 		}
@@ -75,7 +75,7 @@ func (repository *WorkspaceRepository) GetById(ctx context.Context, appUserId st
 	}
 	obj := models.Workspace{}
 	creationUnix := time.Time{}.Unix()
-	err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.OwnerId)
+	err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Owner.Id)
 	if err != nil {
 		return models.Workspace{}, err
 	}
