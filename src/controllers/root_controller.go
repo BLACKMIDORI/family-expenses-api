@@ -4,13 +4,13 @@ import (
 	"net/http"
 )
 
-type Root struct{}
+type RootController struct{}
 
 func init() {
-	http.Handle("/", &Root{})
+	http.Handle("/", &RootController{})
 }
 
-func (controller *Root) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *RootController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	if request.URL.Path != "/" { // Check path here
 		http.NotFound(responseWriter, request)
 		return

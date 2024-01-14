@@ -10,15 +10,15 @@ import (
 	"time"
 )
 
-type Auth struct {
+type AuthController struct {
 	basePath string
 }
 
 func init() {
-	http.Handle("/v1/auth/", &Auth{"/v1/auth/"})
+	http.Handle("/v1/auth/", &AuthController{"/v1/auth/"})
 }
 
-func (controller *Auth) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *AuthController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	defer sendInternalServerErrorOnPanic(responseWriter)
 
 	switch request.Method {
@@ -36,7 +36,7 @@ func (controller *Auth) ServeHTTP(responseWriter http.ResponseWriter, request *h
 }
 
 // POST {basePath}/tokensignin
-func (_ *Auth) tokenSignIn(responseWriter http.ResponseWriter, request *http.Request) {
+func (_ *AuthController) tokenSignIn(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Parse
 	body := bodyJson(request)
@@ -146,7 +146,7 @@ func (_ *Auth) tokenSignIn(responseWriter http.ResponseWriter, request *http.Req
 }
 
 // POST {basePath}/renew
-func (_ *Auth) renew(responseWriter http.ResponseWriter, request *http.Request) {
+func (_ *AuthController) renew(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Parse
 	body := bodyJson(request)

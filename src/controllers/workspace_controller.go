@@ -11,16 +11,16 @@ import (
 	"net/http"
 )
 
-type Workspace struct {
+type WorkspaceController struct {
 	basePath string
 	user     core.AuthenticatedUser
 }
 
 func init() {
-	http.Handle("/v1/workspaces/", &Workspace{"/v1/workspaces/", core.AuthenticatedUser{}})
+	http.Handle("/v1/workspaces/", &WorkspaceController{"/v1/workspaces/", core.AuthenticatedUser{}})
 }
 
-func (controller *Workspace) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *WorkspaceController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	defer sendInternalServerErrorOnPanic(responseWriter)
 	userChan := parseUserAsync(request)
 
@@ -60,7 +60,7 @@ func (controller *Workspace) ServeHTTP(responseWriter http.ResponseWriter, reque
 }
 
 // POST {basePath}
-func (controller *Workspace) create(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *WorkspaceController) create(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -120,7 +120,7 @@ func (controller *Workspace) create(responseWriter http.ResponseWriter, request 
 }
 
 // GET /workspace
-func (controller *Workspace) readPage(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *WorkspaceController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -148,7 +148,7 @@ func (controller *Workspace) readPage(responseWriter http.ResponseWriter, reques
 		repositories.CreateWorkspaceRepository(transaction),
 		controller.user,
 	)
-	workspaces, httpErr := workspaceService.GetAll(ctx, controller.user.Id)
+	workspaces, httpErr := workspaceService.GetAll(ctx)
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -163,7 +163,7 @@ func (controller *Workspace) readPage(responseWriter http.ResponseWriter, reques
 }
 
 // GET /workspace/{id}
-func (controller *Workspace) read(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *WorkspaceController) read(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Parse
 	params := routeParams(request, controller.basePath+"{id}")
@@ -205,7 +205,7 @@ func (controller *Workspace) read(responseWriter http.ResponseWriter, request *h
 }
 
 // PUT /workspace/{id}
-func (controller *Workspace) update(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *WorkspaceController) update(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -278,7 +278,7 @@ func (controller *Workspace) update(responseWriter http.ResponseWriter, request 
 }
 
 // DELETE /workspace/{id}
-func (controller *Workspace) delete(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *WorkspaceController) delete(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
