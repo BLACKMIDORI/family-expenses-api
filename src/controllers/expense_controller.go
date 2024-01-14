@@ -11,16 +11,16 @@ import (
 	"net/http"
 )
 
-type WorkspaceController struct {
+type ExpenseController struct {
 	basePath string
 	user     core.AuthenticatedUser
 }
 
 func init() {
-	http.Handle("/v1/workspaces/", &WorkspaceController{"/v1/workspaces/", core.AuthenticatedUser{}})
+	http.Handle("/v1/expenses/", &ExpenseController{"/v1/expenses/", core.AuthenticatedUser{}})
 }
 
-func (controller *WorkspaceController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *ExpenseController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	defer sendInternalServerErrorOnPanic(responseWriter)
 	userChan := parseUserAsync(request)
 
@@ -59,8 +59,8 @@ func (controller *WorkspaceController) ServeHTTP(responseWriter http.ResponseWri
 	http.NotFound(responseWriter, request)
 }
 
-// POST /workspaces/
-func (controller *WorkspaceController) create(responseWriter http.ResponseWriter, request *http.Request) {
+// POST /expenses/
+func (controller *ExpenseController) create(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -77,6 +77,14 @@ func (controller *WorkspaceController) create(responseWriter http.ResponseWriter
 	validationErrors := make(map[string][]string)
 	if value, ok := body["name"]; !ok || value.(string) == "" {
 		validationErrors["name"] = []string{"'name' is required"}
+	}
+	{
+		value, ok := body["workspace"]
+		if !ok {
+			validationErrors["workspace.id"] = []string{"'workspace.id' is required"}
+		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
+			validationErrors["workspace.id"] = []string{"'workspace.id' is required"}
+		}
 	}
 	if len(validationErrors) != 0 {
 		replyAsJson(responseWriter, 400, map[string]any{
@@ -95,12 +103,15 @@ func (controller *WorkspaceController) create(responseWriter http.ResponseWriter
 	}
 
 	// Construct Dependencies
-	workspaceService := services.CreateWorkspaceService(
-		repositories.CreateWorkspaceRepository(transaction),
+	expenseService := services.CreateExpenseService(
+		repositories.CreateExpenseRepository(transaction),
 		controller.user,
 	)
-	workspace, httpErr := workspaceService.Create(ctx, models.Workspace{
+	expense, httpErr := expenseService.Create(ctx, models.Expense{
 		Name: body["name"].(string),
+		Workspace: models.Workspace{
+			Id: body["workspace"].(map[string]any)["id"].(string),
+		},
 	})
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
@@ -116,11 +127,11 @@ func (controller *WorkspaceController) create(responseWriter http.ResponseWriter
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(workspace)
+	_ = json.NewEncoder(responseWriter).Encode(expense)
 }
 
-// GET /workspaces/
-func (controller *WorkspaceController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
+// GET /expenses/
+func (controller *ExpenseController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -131,8 +142,19 @@ func (controller *WorkspaceController) readPage(responseWriter http.ResponseWrit
 	}
 
 	// * Parse
+	filters := filtersFromQuery(request)
 
 	// * Validate
+	validationErrors := make(map[string][]string)
+	if value := filters.Get("workspace.id"); value == "" {
+		validationErrors["filter"] = []string{"query 'filter=workspace.id__*' is required"}
+	}
+	if len(validationErrors) != 0 {
+		replyAsJson(responseWriter, 400, map[string]any{
+			"errors": validationErrors,
+		})
+		return
+	}
 
 	// Initialize a new DB transaction
 	ctx := context.TODO()
@@ -144,33 +166,33 @@ func (controller *WorkspaceController) readPage(responseWriter http.ResponseWrit
 	}
 
 	// Construct Dependencies
-	workspaceService := services.CreateWorkspaceService(
-		repositories.CreateWorkspaceRepository(transaction),
+	expenseService := services.CreateExpenseService(
+		repositories.CreateExpenseRepository(transaction),
 		controller.user,
 	)
-	workspaces, httpErr := workspaceService.GetAll(ctx)
+	expenses, httpErr := expenseService.GetAll(ctx, filters.Get("workspace.id"))
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.Workspace]{
+	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.Expense]{
 		Size:    999,
 		From:    0,
-		Results: workspaces,
+		Results: expenses,
 	})
 }
 
-// GET /workspaces/{id}
-func (controller *WorkspaceController) read(responseWriter http.ResponseWriter, request *http.Request) {
+// GET /expenses/{id}
+func (controller *ExpenseController) read(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Parse
 	params := routeParams(request, controller.basePath+"{id}")
 
 	// * Validate
 	validationErrors := make(map[string][]string)
-	if value, ok := params["id"]; !ok || value == "" {
+	if prop, ok := params["id"]; !ok || prop == "" {
 		validationErrors["id"] = []string{"'id' is required"}
 	}
 	if len(validationErrors) != 0 {
@@ -190,22 +212,22 @@ func (controller *WorkspaceController) read(responseWriter http.ResponseWriter, 
 	}
 
 	// Construct Dependencies
-	workspaceService := services.CreateWorkspaceService(
-		repositories.CreateWorkspaceRepository(transaction),
+	expenseService := services.CreateExpenseService(
+		repositories.CreateExpenseRepository(transaction),
 		controller.user,
 	)
-	workspace, httpErr := workspaceService.GetOne(ctx, params["id"])
+	expense, httpErr := expenseService.GetOne(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(workspace)
+	_ = json.NewEncoder(responseWriter).Encode(expense)
 }
 
-// PUT /workspaces/{id}
-func (controller *WorkspaceController) update(responseWriter http.ResponseWriter, request *http.Request) {
+// PUT /expenses/{id}
+func (controller *ExpenseController) update(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -221,10 +243,10 @@ func (controller *WorkspaceController) update(responseWriter http.ResponseWriter
 
 	// * Validate
 	validationErrors := make(map[string][]string)
-	if value, ok := params["id"]; !ok || value == "" {
+	if prop, ok := params["id"]; !ok || prop == "" {
 		validationErrors["id"] = []string{"'id' is required"}
 	}
-	if value, ok := body["name"]; !ok || value.(string) == "" {
+	if prop, ok := body["name"]; !ok || prop.(string) == "" {
 		validationErrors["name"] = []string{"'name' is required"}
 	}
 	if len(validationErrors) != 0 {
@@ -244,11 +266,11 @@ func (controller *WorkspaceController) update(responseWriter http.ResponseWriter
 	}
 
 	// Construct Dependencies
-	workspaceService := services.CreateWorkspaceService(
-		repositories.CreateWorkspaceRepository(transaction),
+	expenseService := services.CreateExpenseService(
+		repositories.CreateExpenseRepository(transaction),
 		controller.user,
 	)
-	workspace, httpErr := workspaceService.GetOne(ctx, params["id"])
+	expense, httpErr := expenseService.GetOne(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -257,9 +279,9 @@ func (controller *WorkspaceController) update(responseWriter http.ResponseWriter
 	}
 
 	// Update fields
-	workspace.Name = body["name"].(string)
+	expense.Name = body["name"].(string)
 
-	workspace, httpErr = workspaceService.Update(ctx, workspace)
+	expense, httpErr = expenseService.Update(ctx, expense)
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -274,11 +296,11 @@ func (controller *WorkspaceController) update(responseWriter http.ResponseWriter
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(workspace)
+	_ = json.NewEncoder(responseWriter).Encode(expense)
 }
 
-// DELETE /workspaces/{id}
-func (controller *WorkspaceController) delete(responseWriter http.ResponseWriter, request *http.Request) {
+// DELETE /expenses/{id}
+func (controller *ExpenseController) delete(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -293,7 +315,7 @@ func (controller *WorkspaceController) delete(responseWriter http.ResponseWriter
 
 	// * Validate
 	validationErrors := make(map[string][]string)
-	if value, ok := params["id"]; !ok || value == "" {
+	if prop, ok := params["id"]; !ok || prop == "" {
 		validationErrors["id"] = []string{"'id' is required"}
 	}
 	if len(validationErrors) != 0 {
@@ -313,11 +335,11 @@ func (controller *WorkspaceController) delete(responseWriter http.ResponseWriter
 	}
 
 	// Construct Dependencies
-	workspaceService := services.CreateWorkspaceService(
-		repositories.CreateWorkspaceRepository(transaction),
+	expenseService := services.CreateExpenseService(
+		repositories.CreateExpenseRepository(transaction),
 		controller.user,
 	)
-	httpErr := workspaceService.Delete(ctx, params["id"])
+	httpErr := expenseService.Delete(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),

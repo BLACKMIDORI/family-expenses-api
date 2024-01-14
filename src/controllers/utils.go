@@ -12,6 +12,19 @@ import (
 	"strings"
 )
 
+type Filters map[string][]string
+
+// Get gets the first value associated with the given key.
+// If there are no values associated with the key, Get returns
+// the empty string. To access multiple values, use the map
+// directly.
+func (filters Filters) Get(key string) string {
+	values := filters[key]
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
 func sendInternalServerErrorOnPanic(responseWriter http.ResponseWriter) {
 	if err := recover(); err != nil {
 		replyAsJson(responseWriter, 500, map[string]any{
@@ -46,6 +59,21 @@ func routeParams(request *http.Request, pattern string) map[string]string {
 		params[key] = values[i]
 	}
 	return params
+}
+
+func filtersFromQuery(request *http.Request) (filters Filters) {
+	filters = make(Filters)
+	for key, values := range request.URL.Query() {
+		for _, value := range values {
+			if key == "filter" && strings.Contains(value, "__") {
+				parts := strings.SplitN(value, "__", 2)
+				filterKey := parts[0]
+				filterValue := parts[1]
+				filters[filterKey] = append(filters[filterKey], filterValue)
+			}
+		}
+	}
+	return
 }
 
 func bodyJson(request *http.Request) map[string]any {

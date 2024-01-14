@@ -18,20 +18,31 @@ func CreateWorkspaceRepository(transaction pgx.Tx) *WorkspaceRepository {
 }
 
 func (repository *WorkspaceRepository) Insert(ctx context.Context, entity models.Workspace) (models.Workspace, error) {
-	_, err := repository.transaction.Exec(
+	result, err := repository.transaction.Exec(
 		ctx,
-		"INSERT INTO workspace (id, creation_unix, name, fk_app_user_id) VALUES ($1, $2, $3, $4)",
+		"INSERT INTO workspace "+
+			"(id, creation_unix, name, fk_app_user_id) "+
+			"VALUES ($1, $2, $3, $4)",
 		entity.Id, validTimeToUnixOrNil(entity.CreationDateTime), entity.Name, entity.Owner.Id,
 	)
 	if err != nil {
 		return models.Workspace{}, err
+	}
+	if result.RowsAffected() == 0 {
+		return models.Workspace{}, nil
 	}
 
 	return entity, nil
 }
 
 func (repository *WorkspaceRepository) GetAll(ctx context.Context, appUserId string) (list []models.Workspace, err error) {
-	rows, err := repository.transaction.Query(ctx, "SELECT id, creation_unix, name, fk_app_user_id FROM workspace WHERE fk_app_user_id = $1 ORDER BY creation_unix", appUserId)
+	rows, err := repository.transaction.Query(
+		ctx,
+		"SELECT id, creation_unix, name, fk_app_user_id FROM workspace "+
+			"WHERE fk_app_user_id = $1 "+
+			"ORDER BY creation_unix",
+		appUserId,
+	)
 	defer rows.Close()
 	if err != nil {
 		return []models.Workspace{}, err
@@ -63,7 +74,8 @@ func (repository *WorkspaceRepository) GetAll(ctx context.Context, appUserId str
 func (repository *WorkspaceRepository) GetById(ctx context.Context, appUserId string, entityId string) (models.Workspace, error) {
 	rows, err := repository.transaction.Query(
 		ctx,
-		"SELECT id,creation_unix, name, fk_app_user_id FROM workspace WHERE fk_app_user_id = $1 and id = $2",
+		"SELECT id,creation_unix, name, fk_app_user_id FROM workspace "+
+			"WHERE fk_app_user_id = $1 and id = $2",
 		appUserId, entityId,
 	)
 	defer rows.Close()
@@ -84,27 +96,35 @@ func (repository *WorkspaceRepository) GetById(ctx context.Context, appUserId st
 }
 
 func (repository *WorkspaceRepository) Update(ctx context.Context, appUserId string, entity models.Workspace) (models.Workspace, error) {
-	_, err := repository.transaction.Exec(
+	result, err := repository.transaction.Exec(
 		ctx,
-		"UPDATE workspace SET name = $3 WHERE fk_app_user_id = $1 and id = $2",
+		"UPDATE workspace SET name = $3 "+
+			"WHERE fk_app_user_id = $1 and id = $2",
 		appUserId, entity.Id, entity.Name,
 	)
 	if err != nil {
 		return models.Workspace{}, err
 	}
+	if result.RowsAffected() == 0 {
+		return models.Workspace{}, nil
+	}
 
 	return entity, nil
 }
 
-func (repository *WorkspaceRepository) DeleteById(ctx context.Context, appUserId string, entityId string) error {
-	_, err := repository.transaction.Exec(
+func (repository *WorkspaceRepository) DeleteById(ctx context.Context, appUserId string, entityId string) (bool, error) {
+	result, err := repository.transaction.Exec(
 		ctx,
-		"DELETE FROM workspace WHERE fk_app_user_id = $1 and id = $2",
+		"DELETE FROM workspace "+
+			"WHERE fk_app_user_id = $1 and id = $2",
 		appUserId, entityId,
 	)
 	if err != nil {
-		return err
+		return false, err
+	}
+	if result.RowsAffected() == 0 {
+		return false, nil
 	}
 
-	return nil
+	return true, nil
 }

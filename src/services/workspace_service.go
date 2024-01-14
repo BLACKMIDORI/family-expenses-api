@@ -31,10 +31,13 @@ func (service *WorkspaceService) Create(ctx context.Context, newEntity models.Wo
 		log.Println(err)
 		return models.Workspace{}, InternalServerError{"Internal Server Error"}
 	}
+	if entity.Id == "" {
+		return models.Workspace{}, BadRequest{"unknown"}
+	}
 	return entity, nil
 }
-func (service *WorkspaceService) GetAll(ctx context.Context, appUserId string) ([]models.Workspace, HttpError) {
-	entities, err := service.workspaceRepository.GetAll(ctx, appUserId)
+func (service *WorkspaceService) GetAll(ctx context.Context) ([]models.Workspace, HttpError) {
+	entities, err := service.workspaceRepository.GetAll(ctx, service.user.Id)
 	if err != nil {
 		log.Println(err)
 		return []models.Workspace{}, InternalServerError{"Internal Server Error"}
@@ -42,7 +45,7 @@ func (service *WorkspaceService) GetAll(ctx context.Context, appUserId string) (
 	return entities, nil
 }
 
-func (service *WorkspaceService) GetById(ctx context.Context, id string) (models.Workspace, HttpError) {
+func (service *WorkspaceService) GetOne(ctx context.Context, id string) (models.Workspace, HttpError) {
 	entity, err := service.workspaceRepository.GetById(ctx, service.user.Id, id)
 	if err != nil {
 		log.Println(err)
@@ -61,14 +64,20 @@ func (service *WorkspaceService) Update(ctx context.Context, existentEntity mode
 		log.Println(err)
 		return models.Workspace{}, InternalServerError{"Internal Server Error"}
 	}
+	if entity.Id == "" {
+		return models.Workspace{}, BadRequest{"unknown"}
+	}
 	return entity, nil
 }
 
-func (service *WorkspaceService) DeleteById(ctx context.Context, id string) HttpError {
-	err := service.workspaceRepository.DeleteById(ctx, service.user.Id, id)
+func (service *WorkspaceService) Delete(ctx context.Context, id string) HttpError {
+	wasSucceeded, err := service.workspaceRepository.DeleteById(ctx, service.user.Id, id)
 	if err != nil {
 		log.Println(err)
 		return InternalServerError{"Internal Server Error"}
+	}
+	if !wasSucceeded {
+		return BadRequest{"unknown"}
 	}
 	return nil
 }
