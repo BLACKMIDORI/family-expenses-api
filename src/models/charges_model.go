@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-type Payer struct {
+type ChargesModel struct {
 	Id               string           `json:"id"`
 	CreationDateTime time.Time        `json:"creationDateTime"`
 	Name             string           `json:"name"`

@@ -11,16 +11,16 @@ import (
 	"net/http"
 )
 
-type PayerController struct {
+type ChargesModelController struct {
 	basePath string
 	user     core.AuthenticatedUser
 }
 
 func init() {
-	http.Handle("/v1/payers/", &PayerController{"/v1/payers/", core.AuthenticatedUser{}})
+	http.Handle("/v1/charges-models/", &ChargesModelController{"/v1/charges-models/", core.AuthenticatedUser{}})
 }
 
-func (controller *PayerController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *ChargesModelController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	defer sendInternalServerErrorOnPanic(responseWriter)
 	userChan := parseUserAsync(request)
 
@@ -59,8 +59,8 @@ func (controller *PayerController) ServeHTTP(responseWriter http.ResponseWriter,
 	http.NotFound(responseWriter, request)
 }
 
-// POST /payers/
-func (controller *PayerController) create(responseWriter http.ResponseWriter, request *http.Request) {
+// POST /charges-models/
+func (controller *ChargesModelController) create(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -103,11 +103,11 @@ func (controller *PayerController) create(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargesModelService := services.CreateChargesModelService(
+		repositories.CreateChargesModelRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.Create(ctx, models.Payer{
+	chargesModel, httpErr := chargesModelService.Create(ctx, models.ChargesModel{
 		Name: body["name"].(string),
 		Workspace: models.ForeignKeyHolder{
 			Id: body["workspace"].(map[string]any)["id"].(string),
@@ -127,11 +127,11 @@ func (controller *PayerController) create(responseWriter http.ResponseWriter, re
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(chargesModel)
 }
 
-// GET /payers/
-func (controller *PayerController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
+// GET /charges-models/
+func (controller *ChargesModelController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -166,26 +166,26 @@ func (controller *PayerController) readPage(responseWriter http.ResponseWriter, 
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargesModelService := services.CreateChargesModelService(
+		repositories.CreateChargesModelRepository(transaction),
 		controller.user,
 	)
-	payers, httpErr := payerService.GetAll(ctx, filters.Get("workspace.id"))
+	chargesModels, httpErr := chargesModelService.GetAll(ctx, filters.Get("workspace.id"))
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.Payer]{
+	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.ChargesModel]{
 		Size:    999,
 		From:    0,
-		Results: payers,
+		Results: chargesModels,
 	})
 }
 
-// GET /payers/{id}
-func (controller *PayerController) read(responseWriter http.ResponseWriter, request *http.Request) {
+// GET /charges-models/{id}
+func (controller *ChargesModelController) read(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -220,22 +220,22 @@ func (controller *PayerController) read(responseWriter http.ResponseWriter, requ
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargesModelService := services.CreateChargesModelService(
+		repositories.CreateChargesModelRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.GetOne(ctx, params["id"])
+	chargesModel, httpErr := chargesModelService.GetOne(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(chargesModel)
 }
 
-// PUT /payers/{id}
-func (controller *PayerController) update(responseWriter http.ResponseWriter, request *http.Request) {
+// PUT /charges-models/{id}
+func (controller *ChargesModelController) update(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -274,11 +274,11 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargesModelService := services.CreateChargesModelService(
+		repositories.CreateChargesModelRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.GetOne(ctx, params["id"])
+	chargesModel, httpErr := chargesModelService.GetOne(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -287,9 +287,9 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 	}
 
 	// Update fields
-	payer.Name = body["name"].(string)
+	chargesModel.Name = body["name"].(string)
 
-	payer, httpErr = payerService.Update(ctx, payer)
+	chargesModel, httpErr = chargesModelService.Update(ctx, chargesModel)
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -304,11 +304,11 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(chargesModel)
 }
 
-// DELETE /payers/{id}
-func (controller *PayerController) delete(responseWriter http.ResponseWriter, request *http.Request) {
+// DELETE /charges-models/{id}
+func (controller *ChargesModelController) delete(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -343,11 +343,11 @@ func (controller *PayerController) delete(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargesModelService := services.CreateChargesModelService(
+		repositories.CreateChargesModelRepository(transaction),
 		controller.user,
 	)
-	httpErr := payerService.Delete(ctx, params["id"])
+	httpErr := chargesModelService.Delete(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),

@@ -11,16 +11,16 @@ import (
 	"net/http"
 )
 
-type PayerController struct {
+type PayerPaymentWeightController struct {
 	basePath string
 	user     core.AuthenticatedUser
 }
 
 func init() {
-	http.Handle("/v1/payers/", &PayerController{"/v1/payers/", core.AuthenticatedUser{}})
+	http.Handle("/v1/payer-payment-weights/", &PayerPaymentWeightController{"/v1/payer-payment-weights/", core.AuthenticatedUser{}})
 }
 
-func (controller *PayerController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *PayerPaymentWeightController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	defer sendInternalServerErrorOnPanic(responseWriter)
 	userChan := parseUserAsync(request)
 
@@ -59,8 +59,8 @@ func (controller *PayerController) ServeHTTP(responseWriter http.ResponseWriter,
 	http.NotFound(responseWriter, request)
 }
 
-// POST /payers/
-func (controller *PayerController) create(responseWriter http.ResponseWriter, request *http.Request) {
+// POST /payer-payment-weights/
+func (controller *PayerPaymentWeightController) create(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -75,15 +75,23 @@ func (controller *PayerController) create(responseWriter http.ResponseWriter, re
 
 	// * Validate
 	validationErrors := make(map[string][]string)
-	if value, ok := body["name"]; !ok || value.(string) == "" {
-		validationErrors["name"] = []string{"'name' is required"}
+	if value, ok := body["weight"]; !ok || value.(float64) == 0 {
+		validationErrors["weight"] = []string{"'weight' is required"}
 	}
 	{
-		value, ok := body["workspace"]
+		value, ok := body["payer"]
 		if !ok {
-			validationErrors["workspace.id"] = []string{"'workspace.id' is required"}
+			validationErrors["payer.id"] = []string{"'payer.id' is required"}
 		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
-			validationErrors["workspace.id"] = []string{"'workspace.id' is required"}
+			validationErrors["payer.id"] = []string{"'payer.id' is required"}
+		}
+	}
+	{
+		value, ok := body["chargeAssociation"]
+		if !ok {
+			validationErrors["chargeAssociation.id"] = []string{"'chargeAssociation.id' is required"}
+		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
+			validationErrors["chargeAssociation.id"] = []string{"'chargeAssociation.id' is required"}
 		}
 	}
 	if len(validationErrors) != 0 {
@@ -103,14 +111,17 @@ func (controller *PayerController) create(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	payerPaymentWeightService := services.CreatePayerPaymentWeightService(
+		repositories.CreatePayerPaymentWeightRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.Create(ctx, models.Payer{
-		Name: body["name"].(string),
-		Workspace: models.ForeignKeyHolder{
-			Id: body["workspace"].(map[string]any)["id"].(string),
+	payerPaymentWeight, httpErr := payerPaymentWeightService.Create(ctx, models.PayerPaymentWeight{
+		Weight: body["weight"].(float64),
+		Payer: models.ForeignKeyHolder{
+			Id: body["payer"].(map[string]any)["id"].(string),
+		},
+		ChargeAssociation: models.ForeignKeyHolder{
+			Id: body["chargeAssociation"].(map[string]any)["id"].(string),
 		},
 	})
 	if httpErr != nil {
@@ -127,11 +138,11 @@ func (controller *PayerController) create(responseWriter http.ResponseWriter, re
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(payerPaymentWeight)
 }
 
-// GET /payers/
-func (controller *PayerController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
+// GET /payer-payment-weights/
+func (controller *PayerPaymentWeightController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -146,8 +157,8 @@ func (controller *PayerController) readPage(responseWriter http.ResponseWriter, 
 
 	// * Validate
 	validationErrors := make(map[string][]string)
-	if value := filters.Get("workspace.id"); value == "" {
-		validationErrors["filter"] = []string{"query 'filter=workspace.id__*' is required"}
+	if value := filters.Get("chargeAssociation.id"); value == "" {
+		validationErrors["filter"] = []string{"query 'filter=chargeAssociation.id__*' is required"}
 	}
 	if len(validationErrors) != 0 {
 		replyAsJson(responseWriter, 400, map[string]any{
@@ -166,26 +177,26 @@ func (controller *PayerController) readPage(responseWriter http.ResponseWriter, 
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	payerPaymentWeightService := services.CreatePayerPaymentWeightService(
+		repositories.CreatePayerPaymentWeightRepository(transaction),
 		controller.user,
 	)
-	payers, httpErr := payerService.GetAll(ctx, filters.Get("workspace.id"))
+	payerPaymentWeights, httpErr := payerPaymentWeightService.GetAll(ctx, filters.Get("chargeAssociation.id"))
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.Payer]{
+	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.PayerPaymentWeight]{
 		Size:    999,
 		From:    0,
-		Results: payers,
+		Results: payerPaymentWeights,
 	})
 }
 
-// GET /payers/{id}
-func (controller *PayerController) read(responseWriter http.ResponseWriter, request *http.Request) {
+// GET /payer-payment-weights/{id}
+func (controller *PayerPaymentWeightController) read(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -220,22 +231,22 @@ func (controller *PayerController) read(responseWriter http.ResponseWriter, requ
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	payerPaymentWeightService := services.CreatePayerPaymentWeightService(
+		repositories.CreatePayerPaymentWeightRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.GetOne(ctx, params["id"])
+	payerPaymentWeight, httpErr := payerPaymentWeightService.GetOne(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(payerPaymentWeight)
 }
 
-// PUT /payers/{id}
-func (controller *PayerController) update(responseWriter http.ResponseWriter, request *http.Request) {
+// PUT /payer-payment-weights/{id}
+func (controller *PayerPaymentWeightController) update(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -254,8 +265,16 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 	if prop, ok := params["id"]; !ok || prop == "" {
 		validationErrors["id"] = []string{"'id' is required"}
 	}
-	if prop, ok := body["name"]; !ok || prop.(string) == "" {
-		validationErrors["name"] = []string{"'name' is required"}
+	if prop, ok := body["weight"]; !ok || prop.(float64) == 0 {
+		validationErrors["weight"] = []string{"'weight' is required"}
+	}
+	{
+		value, ok := body["payer"]
+		if !ok {
+			validationErrors["payer.id"] = []string{"'payer.id' is required"}
+		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
+			validationErrors["payer.id"] = []string{"'payer.id' is required"}
+		}
 	}
 	if len(validationErrors) != 0 {
 		replyAsJson(responseWriter, 400, map[string]any{
@@ -274,11 +293,11 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	payerPaymentWeightService := services.CreatePayerPaymentWeightService(
+		repositories.CreatePayerPaymentWeightRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.GetOne(ctx, params["id"])
+	payerPaymentWeight, httpErr := payerPaymentWeightService.GetOne(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -287,9 +306,10 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 	}
 
 	// Update fields
-	payer.Name = body["name"].(string)
+	payerPaymentWeight.Weight = body["weight"].(float64)
+	payerPaymentWeight.Payer.Id = body["payer"].(map[string]any)["id"].(string)
 
-	payer, httpErr = payerService.Update(ctx, payer)
+	payerPaymentWeight, httpErr = payerPaymentWeightService.Update(ctx, payerPaymentWeight)
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -304,11 +324,11 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(payerPaymentWeight)
 }
 
-// DELETE /payers/{id}
-func (controller *PayerController) delete(responseWriter http.ResponseWriter, request *http.Request) {
+// DELETE /payer-payment-weights/{id}
+func (controller *PayerPaymentWeightController) delete(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -343,11 +363,11 @@ func (controller *PayerController) delete(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	payerPaymentWeightService := services.CreatePayerPaymentWeightService(
+		repositories.CreatePayerPaymentWeightRepository(transaction),
 		controller.user,
 	)
-	httpErr := payerService.Delete(ctx, params["id"])
+	httpErr := payerPaymentWeightService.Delete(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),

@@ -23,7 +23,7 @@ func (repository *PayerRepository) Insert(ctx context.Context, appUserId string,
 		"INSERT INTO payer "+
 			"(id, creation_unix, name, fk_workspace_id) "+
 			"SELECT $3, $4, $5, id FROM workspace "+
-			"where fk_app_user_id = $1 and id = $2",
+			"WHERE fk_app_user_id = $1 and id = $2",
 		appUserId, entity.Workspace.Id, entity.Id, validTimeToUnixOrNil(entity.CreationDateTime), entity.Name,
 	)
 	if err != nil {

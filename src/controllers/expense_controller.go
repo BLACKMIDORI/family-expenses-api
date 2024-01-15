@@ -109,7 +109,7 @@ func (controller *ExpenseController) create(responseWriter http.ResponseWriter, 
 	)
 	expense, httpErr := expenseService.Create(ctx, models.Expense{
 		Name: body["name"].(string),
-		Workspace: models.Workspace{
+		Workspace: models.ForeignKeyHolder{
 			Id: body["workspace"].(map[string]any)["id"].(string),
 		},
 	})

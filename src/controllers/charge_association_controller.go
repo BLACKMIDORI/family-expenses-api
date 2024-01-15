@@ -11,16 +11,16 @@ import (
 	"net/http"
 )
 
-type PayerController struct {
+type ChargeAssociationController struct {
 	basePath string
 	user     core.AuthenticatedUser
 }
 
 func init() {
-	http.Handle("/v1/payers/", &PayerController{"/v1/payers/", core.AuthenticatedUser{}})
+	http.Handle("/v1/charge-associations/", &ChargeAssociationController{"/v1/charge-associations/", core.AuthenticatedUser{}})
 }
 
-func (controller *PayerController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (controller *ChargeAssociationController) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	defer sendInternalServerErrorOnPanic(responseWriter)
 	userChan := parseUserAsync(request)
 
@@ -59,8 +59,8 @@ func (controller *PayerController) ServeHTTP(responseWriter http.ResponseWriter,
 	http.NotFound(responseWriter, request)
 }
 
-// POST /payers/
-func (controller *PayerController) create(responseWriter http.ResponseWriter, request *http.Request) {
+// POST /charge-associations/
+func (controller *ChargeAssociationController) create(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -79,11 +79,19 @@ func (controller *PayerController) create(responseWriter http.ResponseWriter, re
 		validationErrors["name"] = []string{"'name' is required"}
 	}
 	{
-		value, ok := body["workspace"]
+		value, ok := body["expense"]
 		if !ok {
-			validationErrors["workspace.id"] = []string{"'workspace.id' is required"}
+			validationErrors["expense.id"] = []string{"'expense.id' is required"}
 		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
-			validationErrors["workspace.id"] = []string{"'workspace.id' is required"}
+			validationErrors["expense.id"] = []string{"'expense.id' is required"}
+		}
+	}
+	{
+		value, ok := body["chargesModel"]
+		if !ok {
+			validationErrors["chargesModel.id"] = []string{"'chargesModel.id' is required"}
+		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
+			validationErrors["chargesModel.id"] = []string{"'chargesModel.id' is required"}
 		}
 	}
 	if len(validationErrors) != 0 {
@@ -103,14 +111,17 @@ func (controller *PayerController) create(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargeAssociationService := services.CreateChargeAssociationService(
+		repositories.CreateChargeAssociationRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.Create(ctx, models.Payer{
+	chargeAssociation, httpErr := chargeAssociationService.Create(ctx, models.ChargeAssociation{
 		Name: body["name"].(string),
-		Workspace: models.ForeignKeyHolder{
-			Id: body["workspace"].(map[string]any)["id"].(string),
+		Expense: models.ForeignKeyHolder{
+			Id: body["expense"].(map[string]any)["id"].(string),
+		},
+		ChargesModel: models.ForeignKeyHolder{
+			Id: body["chargesModel"].(map[string]any)["id"].(string),
 		},
 	})
 	if httpErr != nil {
@@ -127,11 +138,11 @@ func (controller *PayerController) create(responseWriter http.ResponseWriter, re
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(chargeAssociation)
 }
 
-// GET /payers/
-func (controller *PayerController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
+// GET /charge-associations/
+func (controller *ChargeAssociationController) readPage(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -146,8 +157,8 @@ func (controller *PayerController) readPage(responseWriter http.ResponseWriter, 
 
 	// * Validate
 	validationErrors := make(map[string][]string)
-	if value := filters.Get("workspace.id"); value == "" {
-		validationErrors["filter"] = []string{"query 'filter=workspace.id__*' is required"}
+	if value := filters.Get("chargesModel.id"); value == "" {
+		validationErrors["filter"] = []string{"query 'filter=chargesModel.id__*' is required"}
 	}
 	if len(validationErrors) != 0 {
 		replyAsJson(responseWriter, 400, map[string]any{
@@ -166,26 +177,26 @@ func (controller *PayerController) readPage(responseWriter http.ResponseWriter, 
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargeAssociationService := services.CreateChargeAssociationService(
+		repositories.CreateChargeAssociationRepository(transaction),
 		controller.user,
 	)
-	payers, httpErr := payerService.GetAll(ctx, filters.Get("workspace.id"))
+	chargeAssociations, httpErr := chargeAssociationService.GetAll(ctx, filters.Get("chargesModel.id"))
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.Payer]{
+	_ = json.NewEncoder(responseWriter).Encode(core.PagedList[models.ChargeAssociation]{
 		Size:    999,
 		From:    0,
-		Results: payers,
+		Results: chargeAssociations,
 	})
 }
 
-// GET /payers/{id}
-func (controller *PayerController) read(responseWriter http.ResponseWriter, request *http.Request) {
+// GET /charge-associations/{id}
+func (controller *ChargeAssociationController) read(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -220,22 +231,22 @@ func (controller *PayerController) read(responseWriter http.ResponseWriter, requ
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargeAssociationService := services.CreateChargeAssociationService(
+		repositories.CreateChargeAssociationRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.GetOne(ctx, params["id"])
+	chargeAssociation, httpErr := chargeAssociationService.GetOne(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(chargeAssociation)
 }
 
-// PUT /payers/{id}
-func (controller *PayerController) update(responseWriter http.ResponseWriter, request *http.Request) {
+// PUT /charge-associations/{id}
+func (controller *ChargeAssociationController) update(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -257,6 +268,14 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 	if prop, ok := body["name"]; !ok || prop.(string) == "" {
 		validationErrors["name"] = []string{"'name' is required"}
 	}
+	{
+		value, ok := body["expense"]
+		if !ok {
+			validationErrors["expense.id"] = []string{"'expense.id' is required"}
+		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
+			validationErrors["expense.id"] = []string{"'expense.id' is required"}
+		}
+	}
 	if len(validationErrors) != 0 {
 		replyAsJson(responseWriter, 400, map[string]any{
 			"errors": validationErrors,
@@ -274,11 +293,11 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargeAssociationService := services.CreateChargeAssociationService(
+		repositories.CreateChargeAssociationRepository(transaction),
 		controller.user,
 	)
-	payer, httpErr := payerService.GetOne(ctx, params["id"])
+	chargeAssociation, httpErr := chargeAssociationService.GetOne(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -287,9 +306,10 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 	}
 
 	// Update fields
-	payer.Name = body["name"].(string)
+	chargeAssociation.Name = body["name"].(string)
+	chargeAssociation.Expense.Id = body["expense"].(map[string]any)["id"].(string)
 
-	payer, httpErr = payerService.Update(ctx, payer)
+	chargeAssociation, httpErr = chargeAssociationService.Update(ctx, chargeAssociation)
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
@@ -304,11 +324,11 @@ func (controller *PayerController) update(responseWriter http.ResponseWriter, re
 		})
 		return
 	}
-	_ = json.NewEncoder(responseWriter).Encode(payer)
+	_ = json.NewEncoder(responseWriter).Encode(chargeAssociation)
 }
 
-// DELETE /payers/{id}
-func (controller *PayerController) delete(responseWriter http.ResponseWriter, request *http.Request) {
+// DELETE /charge-associations/{id}
+func (controller *ChargeAssociationController) delete(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Println("Handling", request.Method, request.URL)
 	// * Auth
 	if controller.user.Id == "" {
@@ -343,11 +363,11 @@ func (controller *PayerController) delete(responseWriter http.ResponseWriter, re
 	}
 
 	// Construct Dependencies
-	payerService := services.CreatePayerService(
-		repositories.CreatePayerRepository(transaction),
+	chargeAssociationService := services.CreateChargeAssociationService(
+		repositories.CreateChargeAssociationRepository(transaction),
 		controller.user,
 	)
-	httpErr := payerService.Delete(ctx, params["id"])
+	httpErr := chargeAssociationService.Delete(ctx, params["id"])
 	if httpErr != nil {
 		replyAsJson(responseWriter, httpErr.StatusCode(), map[string]any{
 			"error": httpErr.Error(),
