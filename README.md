@@ -4,15 +4,27 @@ This project is the API of the [Family Expenses](https://github.com/BLACKMIDORI/
 
 # Setting up
 
-### MongoDB
+## Environment Variables
+### Postgres
+`DB_URL`
 
-Configure the MongoDB properties in `src/main/resources/application.properties`
+`DB_NAME`
 
-Create a database named `familyexpenses` and also a collection named `user`, add a user as follows:
-```
-{
-    "_id":"DevelopmentUserInstance",
-    "name":"Developer",
-    "roles":["admin"],
-}
-```
+`DB_USER`
+
+`DB_PASSWORD`
+
+### Google Identity API
+`GOOGLE_ALLOWED_ISSUERS=https://accounts.google.com`_comma-separated_
+
+`GOOGLE_ALLOWED_AUDIENCES`_comma-separated_ : 
+The OAuth Client Id of clients(web, mobile)
+
+### JWT Settings
+`JWT_ISSUER`: Issuer can be any string(usually is a url)
+
+`JWT_AUDIENCES`_comma-separated_: Allowed clients for generating JWT access tokens
+
+`JWT_SIGNING_KEY_PEM`: RSA private key in PEM format
+
+`JWT_SIGNING_PUBLIC_KEY_PEM`: Equivalent RSA public key in PEM format
