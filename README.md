@@ -1,6 +1,6 @@
 # Family Expenses (API)
 
-This project is the API of the [Family Expenses](https://github.com/BLACKMIDORI/family-expenses-app) application
+This project is the API of the [Family Expenses](https://github.com/BLACKMIDORI/family-expenses-mobile) application
 
 # Setting up
 
