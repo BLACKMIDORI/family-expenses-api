@@ -78,9 +78,11 @@ CREATE TABLE charge_association
     creation_unix       bigint not null,
     name                text   not null,
     fk_expense_id       text   not null,
+    fk_payer_id         text   not null,
     fk_charges_model_id text   not null,
     PRIMARY KEY (id),
     FOREIGN KEY (fk_expense_id) REFERENCES expense (id),
+    FOREIGN KEY (fk_payer_id) REFERENCES payer (id),
     FOREIGN KEY (fk_charges_model_id) REFERENCES charges_model (id)
 );
 

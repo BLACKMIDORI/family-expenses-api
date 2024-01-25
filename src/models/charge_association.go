@@ -7,5 +7,6 @@ type ChargeAssociation struct {
 	CreationDateTime time.Time        `json:"creationDateTime"`
 	Name             string           `json:"name"`
 	Expense          ForeignKeyHolder `json:"expense"`
+	ActualPayer      ForeignKeyHolder `json:"actualPayer"`
 	ChargesModel     ForeignKeyHolder `json:"chargesModel"`
 }

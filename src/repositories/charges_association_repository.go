@@ -21,14 +21,16 @@ func (repository *ChargeAssociationRepository) Insert(ctx context.Context, appUs
 	result, err := repository.transaction.Exec(
 		ctx,
 		"INSERT INTO charge_association "+
-			"(id, creation_unix, name, fk_expense_id, fk_charges_model_id) "+
-			"SELECT $4, $5, $6, expense.id, charges_model.id FROM charges_model "+
+			"(id, creation_unix, name, fk_expense_id, fk_payer_id, fk_charges_model_id) "+
+			"SELECT $5, $6, $7, expense.id, payer.id, charges_model.id FROM charges_model "+
 			"INNER JOIN workspace "+
 			"ON workspace.id = charges_model.fk_workspace_id "+
 			"INNER JOIN expense "+
 			"ON expense.fk_workspace_id = workspace.id  "+
-			"WHERE workspace.fk_app_user_id = $1 and charges_model.id = $2 and expense.id = $3",
-		appUserId, entity.ChargesModel.Id, entity.Expense.Id, entity.Id, validTimeToUnixOrNil(entity.CreationDateTime), entity.Name,
+			"INNER JOIN payer "+
+			"ON payer.fk_workspace_id = workspace.id  "+
+			"WHERE workspace.fk_app_user_id = $1 and charges_model.id = $2 and expense.id = $3 and payer.id = $4",
+		appUserId, entity.ChargesModel.Id, entity.Expense.Id, entity.ActualPayer.Id, entity.Id, validTimeToUnixOrNil(entity.CreationDateTime), entity.Name,
 	)
 	if err != nil {
 		return models.ChargeAssociation{}, err
@@ -43,7 +45,7 @@ func (repository *ChargeAssociationRepository) Insert(ctx context.Context, appUs
 func (repository *ChargeAssociationRepository) GetByChargesModelId(ctx context.Context, appUserId string, chargesModelId string) (list []models.ChargeAssociation, err error) {
 	rows, err := repository.transaction.Query(
 		ctx,
-		"SELECT charge_association.id, charge_association.creation_unix, charge_association.name, charge_association.fk_expense_id, charge_association.fk_charges_model_id "+
+		"SELECT charge_association.id, charge_association.creation_unix, charge_association.name, charge_association.fk_expense_id, charge_association.fk_payer_id, charge_association.fk_charges_model_id "+
 			"FROM charge_association "+
 			"INNER JOIN charges_model "+
 			"ON charges_model.id = charge_association.fk_charges_model_id "+
@@ -62,7 +64,7 @@ func (repository *ChargeAssociationRepository) GetByChargesModelId(ctx context.C
 	}
 	obj := models.ChargeAssociation{}
 	creationUnix := time.Time{}.Unix()
-	err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Expense.Id, &obj.ChargesModel.Id)
+	err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Expense.Id, &obj.ActualPayer.Id, &obj.ChargesModel.Id)
 	if err != nil {
 		return []models.ChargeAssociation{}, err
 	}
@@ -71,7 +73,7 @@ func (repository *ChargeAssociationRepository) GetByChargesModelId(ctx context.C
 	for rows.Next() {
 		obj := models.ChargeAssociation{}
 		creationUnix := time.Time{}.Unix()
-		err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Expense.Id, &obj.ChargesModel.Id)
+		err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Expense.Id, &obj.ActualPayer.Id, &obj.ChargesModel.Id)
 		if err != nil {
 			return []models.ChargeAssociation{}, err
 		}
@@ -84,7 +86,7 @@ func (repository *ChargeAssociationRepository) GetByChargesModelId(ctx context.C
 func (repository *ChargeAssociationRepository) GetById(ctx context.Context, appUserId string, entityId string) (models.ChargeAssociation, error) {
 	rows, err := repository.transaction.Query(
 		ctx,
-		"SELECT charge_association.id, charge_association.creation_unix, charge_association.name, charge_association.fk_expense_id, charge_association.fk_charges_model_id "+
+		"SELECT charge_association.id, charge_association.creation_unix, charge_association.name, charge_association.fk_expense_id, charge_association.fk_payer_id, charge_association.fk_charges_model_id "+
 			"FROM charge_association "+
 			"INNER JOIN charges_model "+
 			"ON charges_model.id = charge_association.fk_charges_model_id "+
@@ -102,7 +104,7 @@ func (repository *ChargeAssociationRepository) GetById(ctx context.Context, appU
 	}
 	obj := models.ChargeAssociation{}
 	creationUnix := time.Time{}.Unix()
-	err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Expense.Id, &obj.ChargesModel.Id)
+	err = rows.Scan(&obj.Id, &creationUnix, &obj.Name, &obj.Expense.Id, &obj.ActualPayer.Id, &obj.ChargesModel.Id)
 	if err != nil {
 		return models.ChargeAssociation{}, err
 	}
@@ -113,7 +115,7 @@ func (repository *ChargeAssociationRepository) GetById(ctx context.Context, appU
 func (repository *ChargeAssociationRepository) Update(ctx context.Context, appUserId string, entity models.ChargeAssociation) (models.ChargeAssociation, error) {
 	result, err := repository.transaction.Exec(
 		ctx,
-		"UPDATE charge_association SET name = $5, fk_expense_id = $3 "+
+		"UPDATE charge_association SET name = $6, fk_expense_id = $3, fk_payer_id = $4 "+
 			"WHERE charge_association.id IN ( "+
 			"SELECT charge_association.id FROM charge_association "+
 			"INNER JOIN charges_model "+
@@ -122,9 +124,11 @@ func (repository *ChargeAssociationRepository) Update(ctx context.Context, appUs
 			"ON workspace.id = charges_model.fk_workspace_id "+
 			"INNER JOIN expense "+
 			"ON expense.fk_workspace_id = workspace.id "+
-			"WHERE workspace.fk_app_user_id = $1 and charges_model.id = $2 and expense.id = $3 and charge_association.id = $4 "+
+			"INNER JOIN payer "+
+			"ON payer.fk_workspace_id = workspace.id "+
+			"WHERE workspace.fk_app_user_id = $1 and charges_model.id = $2 and expense.id = $3 and payer.id = $4 and charge_association.id = $5 "+
 			")",
-		appUserId, entity.ChargesModel.Id, entity.Expense.Id, entity.Id, entity.Name,
+		appUserId, entity.ChargesModel.Id, entity.Expense.Id, entity.ActualPayer.Id, entity.Id, entity.Name,
 	)
 	if err != nil {
 		return models.ChargeAssociation{}, err

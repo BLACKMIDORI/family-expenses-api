@@ -87,6 +87,14 @@ func (controller *ChargeAssociationController) create(responseWriter http.Respon
 		}
 	}
 	{
+		value, ok := body["actualPayer"]
+		if !ok {
+			validationErrors["actualPayer.id"] = []string{"'actualPayer.id' is required"}
+		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
+			validationErrors["actualPayer.id"] = []string{"'actualPayer.id' is required"}
+		}
+	}
+	{
 		value, ok := body["chargesModel"]
 		if !ok {
 			validationErrors["chargesModel.id"] = []string{"'chargesModel.id' is required"}
@@ -119,6 +127,9 @@ func (controller *ChargeAssociationController) create(responseWriter http.Respon
 		Name: body["name"].(string),
 		Expense: models.ForeignKeyHolder{
 			Id: body["expense"].(map[string]any)["id"].(string),
+		},
+		ActualPayer: models.ForeignKeyHolder{
+			Id: body["actualPayer"].(map[string]any)["id"].(string),
 		},
 		ChargesModel: models.ForeignKeyHolder{
 			Id: body["chargesModel"].(map[string]any)["id"].(string),
@@ -276,6 +287,14 @@ func (controller *ChargeAssociationController) update(responseWriter http.Respon
 			validationErrors["expense.id"] = []string{"'expense.id' is required"}
 		}
 	}
+	{
+		value, ok := body["actualPayer"]
+		if !ok {
+			validationErrors["actualPayer.id"] = []string{"'actualPayer.id' is required"}
+		} else if value2, ok2 := value.(map[string]any)["id"]; !ok2 || value2.(string) == "" {
+			validationErrors["actualPayer.id"] = []string{"'actualPayer.id' is required"}
+		}
+	}
 	if len(validationErrors) != 0 {
 		replyAsJson(responseWriter, 400, map[string]any{
 			"errors": validationErrors,
@@ -308,6 +327,7 @@ func (controller *ChargeAssociationController) update(responseWriter http.Respon
 	// Update fields
 	chargeAssociation.Name = body["name"].(string)
 	chargeAssociation.Expense.Id = body["expense"].(map[string]any)["id"].(string)
+	chargeAssociation.ActualPayer.Id = body["actualPayer"].(map[string]any)["id"].(string)
 
 	chargeAssociation, httpErr = chargeAssociationService.Update(ctx, chargeAssociation)
 	if httpErr != nil {
