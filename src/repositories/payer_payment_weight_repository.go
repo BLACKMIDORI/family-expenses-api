@@ -3,7 +3,9 @@ package repositories
 import (
 	"context"
 	"family-expenses-api/models"
+	"fmt"
 	"github.com/jackc/pgx/v4"
+	"strconv"
 	"time"
 )
 
@@ -66,20 +68,24 @@ func (repository *PayerPaymentWeightRepository) GetByChargeAssociationId(ctx con
 	}
 	obj := models.PayerPaymentWeight{}
 	creationUnix := time.Time{}.Unix()
-	err = rows.Scan(&obj.Id, &creationUnix, &obj.Weight, &obj.Payer.Id, &obj.ChargeAssociation.Id)
+	var weight float32
+	err = rows.Scan(&obj.Id, &creationUnix, &weight, &obj.Payer.Id, &obj.ChargeAssociation.Id)
 	if err != nil {
 		return []models.PayerPaymentWeight{}, err
 	}
 	obj.CreationDateTime = time.Unix(creationUnix, 0)
+	obj.Weight, _ = strconv.ParseFloat(fmt.Sprint(weight), 64)
 	list = append(list, obj)
 	for rows.Next() {
 		obj := models.PayerPaymentWeight{}
 		creationUnix := time.Time{}.Unix()
-		err = rows.Scan(&obj.Id, &creationUnix, &obj.Weight, &obj.Payer.Id, &obj.ChargeAssociation.Id)
+		var weight float32
+		err = rows.Scan(&obj.Id, &creationUnix, &weight, &obj.Payer.Id, &obj.ChargeAssociation.Id)
 		if err != nil {
 			return []models.PayerPaymentWeight{}, err
 		}
 		obj.CreationDateTime = time.Unix(creationUnix, 0)
+		obj.Weight, _ = strconv.ParseFloat(fmt.Sprint(weight), 64)
 		list = append(list, obj)
 	}
 	return list, nil
@@ -108,11 +114,13 @@ func (repository *PayerPaymentWeightRepository) GetById(ctx context.Context, app
 	}
 	obj := models.PayerPaymentWeight{}
 	creationUnix := time.Time{}.Unix()
-	err = rows.Scan(&obj.Id, &creationUnix, &obj.Weight, &obj.Payer.Id, &obj.ChargeAssociation.Id)
+	var weight float32
+	err = rows.Scan(&obj.Id, &creationUnix, &weight, &obj.Payer.Id, &obj.ChargeAssociation.Id)
 	if err != nil {
 		return models.PayerPaymentWeight{}, err
 	}
 	obj.CreationDateTime = time.Unix(creationUnix, 0)
+	obj.Weight, _ = strconv.ParseFloat(fmt.Sprint(weight), 64)
 	return obj, nil
 }
 
